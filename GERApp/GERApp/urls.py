@@ -15,8 +15,17 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from api import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', include('api.urls')),
+    path('auth/user/', views.getUsers, name='users'),
+    path('categories/', views.getCategories, name='categories'),
+    path('api/reservations/<int:pk>/', views.getReservationsView, name='listReservation'),
+    path('api/reservations/<int:pk>/remove/', views.deleteReservation, name='removeReservation'),
+    path('api/categories/equipment/reservation/', views.makeReservation, name='makeReservationView'),
+    path('api/categories/<int:pk>/equipment/', views.EquipmentByCategoryView, name='equipmentsByCategories'),
+    path('api/categories/equipment/<int:pk>/<str:date>/', views.getCurrentReservedQuantity, name='getReservedQuantity'),
 ]
