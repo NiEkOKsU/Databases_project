@@ -32,6 +32,31 @@ def EquipmentByCategoryView(request, pk):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def getCurrentReservedQuantity(request, pk, date):
+    category = Category.objects.get(id=pk)
+    equipments = category.equipment_set.all()
+    equipment_serializer = EquipmentSerializer(equipments, many=True)
+
+    data = []
+
+    for el in equipment_serializer.data:
+        choosen_equipment = el['id']
+        reservation_details = Reservation_detail.objects.filter(equipment=choosen_equipment)
+        reservation_detail_ids = reservation_details.values_list('id', flat=True)
+        reservation = Reservation.objects.filter(reservation_detail__id__in=reservation_detail_ids)
+        reservation_detail_serializer = ReservationDetailSerializer(reservation_details, many=True)
+        reservation_serializer = ReservationSerializer(reservation, many=True)
+        reservedYet = 0
+        
+        for i in range(len(reservation_detail_serializer.data)):
+            if reservation_serializer.data[i]['reservation_date'] == date:
+                reservedYet += reservation_detail_serializer.data[i]['quantity']
+
+        data.append({'equipmentId': el['id'], 'equipmentName': el['equipment_name'],
+                     'maxQuantity': el['max_quantity'],
+                     'quantityLeft': el['max_quantity'] - reservedYet})
+
+    return Response(data)
+    """
     choosen_equipment = Equipment.objects.get(id=pk)
     reservation_details = Reservation_detail.objects.filter(equipment=choosen_equipment)
     reservation_detail_ids = reservation_details.values_list('id', flat=True)
@@ -45,6 +70,7 @@ def getCurrentReservedQuantity(request, pk, date):
             reservedYet += reservation_detail_serializer.data[i]['quantity']
 
     return Response(reservedYet)
+    """
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

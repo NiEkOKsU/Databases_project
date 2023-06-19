@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import UserContext from '../context/UserContext';
+import '../css/style.css';
 
 const Reservations = () => {
   const [categories, setCategories] = useState([]);
@@ -8,8 +9,10 @@ const Reservations = () => {
   const [selectedEquipment, setSelectedEquipment] = useState('');
   const [reservationDate, setReservationDate] = useState('');
   const [quantity, setQuantity] = useState(0);
-  const [reservedQuantity, setReservedQuantity] = useState(0);
+  const [reservedQuantity, setReservedQuantity] = useState([]);
   const [maxQuantity, setMaxQuantity] = useState(0);
+  const [nameOfSelectedEquipment, setNameOfSelectedEquipment] = useState('');
+  
 
   const { activeUser } = useContext(UserContext);
 
@@ -53,17 +56,19 @@ const Reservations = () => {
     }
   };
 
-  const getCurrentlyReservedQuantity = async (choosenDate) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/categories/equipment/${selectedEquipment}/${choosenDate}/`);
-      if (response.ok) {
-        const data = await response.json();
-        setReservedQuantity(parseInt(data));
-      } else {
-        console.error('Request failed with status:', response.status);
+  const getCurrentlyReservedQuantity = async (choosenDate, choosenCategory) => {
+    if (choosenDate && choosenCategory){
+      try {
+        const response = await fetch(`http://localhost:8000/api/categories/equipment/${choosenCategory}/${choosenDate}/`);
+        if (response.ok) {
+          const data = await response.json();
+          setReservedQuantity(data);
+        } else {
+          console.error('Request failed with status:', response.status);
+        }
+      } catch (error) {
+        console.error('Request failed with error:', error);
       }
-    } catch (error) {
-      console.error('Request failed with error:', error);
     }
   };
   
@@ -77,7 +82,7 @@ const Reservations = () => {
             body: JSON.stringify({
                 'user_id': activeUser.id,
                 'selected_category': selectedCategory,
-                'selected_equipment': selectedEquipment,
+                'selected_equipment': nameOfSelectedEquipment,
                 'reservation_date': reservationDate,
                 'reservation_qantity': quantity
             })
@@ -98,19 +103,28 @@ const Reservations = () => {
 
   const handleCategoryChange = (event) => {
     setSelectedCategory(event.target.value);
-    setSelectedEquipment('');
-    setReservationDate('');
+    getCurrentlyReservedQuantity(reservationDate, event.target.value);
     setQuantity(0);
+    setSelectedEquipment('');
   };
 
   const handleEquipmentChange = (event) => {
-    const equipmentId = event.target.value;
-    setSelectedEquipment(equipmentId);
-    const selectedEquipmentData = equipment.find((item) => item.id === parseInt(equipmentId));
-    setMaxQuantity(selectedEquipmentData.max_quantity);
-    setReservationDate('');
+    const equipmentValue = event.target.value;
+    const equipmentName = equipmentValue.split(':')[0];
+    setSelectedEquipment(event.target.value);
+    setMaxQuantityOfItem(equipmentName);
     setQuantity(0);
   };
+
+  const setMaxQuantityOfItem = (equipmentName) => {
+    reservedQuantity.forEach((element) => {
+      if (element['equipmentName'] == equipmentName){
+        setMaxQuantity(element['quantityLeft']);
+        setNameOfSelectedEquipment(element['equipmentId']);
+      }
+    });
+
+  }
 
   const handleReservationDateChange = (event) => {
     const currentDate = new Date();
@@ -118,16 +132,17 @@ const Reservations = () => {
 
     if (selectedDate >= currentDate) {
         setReservationDate(event.target.value);
-        getCurrentlyReservedQuantity(event.target.value);
+        getCurrentlyReservedQuantity(event.target.value, selectedCategory);
     } else {
         window.alert("Nieprawidłowa data");
     }
     setQuantity(0);
+    setSelectedEquipment('');
   };
 
   const handleQuantityChange = (event) => {
     const quantityValue = event.target.value;
-    if (quantityValue >= 0 && quantityValue <= maxQuantity - reservedQuantity) {
+    if (quantityValue >= 0 && quantityValue <= maxQuantity) {
       setQuantity(quantityValue);
     }
   };
@@ -141,6 +156,11 @@ const Reservations = () => {
       </div>
       <div className="d-flex justify-content-center" style={{ height: '350px' }}>
         <div className="w-50">
+        <div className="mt-3 mx-auto">
+              <div>Wybierz datę rezerwacji:</div>
+              <input type="date" className="form-control" value={reservationDate} onChange={handleReservationDateChange} />
+            </div>
+            <br></br>
           <select className="form-select" value={selectedCategory} onChange={handleCategoryChange}>
             <option disabled value="">
               Wybierz kategorię
@@ -152,26 +172,25 @@ const Reservations = () => {
             ))}
           </select>
 
-          {equipment.length > 0 && (
-            <select className="form-select mt-3 mx-auto" value={selectedEquipment} onChange={handleEquipmentChange}>
+          {equipment.length > 0 && reservationDate && (
+            <select className="form-select mt-3 mx-auto" value={selectedEquipment} onChange={(event) => handleEquipmentChange(event)}>
               <option disabled value="">
                 Wybierz przyrząd
               </option>
-              {equipment.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.equipment_name}
+              {reservedQuantity.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                  className={item.quantityLeft === 0 ? 'out-of-stock' : item.quantityLeft <= 2 ? 'few-left' : ''}
+                  disabled={item.quantityLeft === 0}
+                >
+                  {item.equipmentName + ": " + item.quantityLeft}
                 </option>
               ))}
             </select>
           )}
 
           {selectedEquipment && (
-            <div className="mt-3 mx-auto">
-              <div>Wybierz datę rezerwacji:</div>
-              <input type="date" className="form-control" value={reservationDate} onChange={handleReservationDateChange} />
-            </div>
-          )}
-          {reservationDate && (
             <div className="mt-3 mx-auto">
               <div>Wybierz ilość:</div>
               <input
